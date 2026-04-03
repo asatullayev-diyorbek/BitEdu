@@ -67,6 +67,7 @@ class SubjectAdmin(admin.ModelAdmin):
                     "name",
                     "grade",
                     "description",
+                    "image",
                 )
             },
         ),

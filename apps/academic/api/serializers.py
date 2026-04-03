@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from apps.academic.models import Grade, Subject, Topic
+from apps.academic.models import Grade, Subject, Topic, TopicResource
+from apps.tests import models
+from apps.tests.models import TopicProgress
 
 
 class GradeSerializer(serializers.ModelSerializer):
@@ -73,6 +75,7 @@ class SubjectSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
 
         grade_id = validated_data.pop("grade_id")
+        grade = Grade.objects.get(id=grade_id)
 
         image = validated_data.pop("image_file", None)
         book = validated_data.pop("book_file", None)
@@ -116,7 +119,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 
     def validate_book_file(self, value):
 
-        if value.size > 5 * 1024 * 1024:
+        if value.size > 50 * 1024 * 1024:
             raise serializers.ValidationError(
                 "PDF hajmi 5MB dan oshmasligi kerak."
             )
@@ -152,6 +155,7 @@ class TopicSerializer(serializers.ModelSerializer):
         return {
             "id": str(obj.subject_id),
             "name": obj.subject.name,
+            "grade": obj.subject.grade.name,
         }
 
     def validate_subject_id(self, value):
@@ -175,3 +179,54 @@ class TopicSerializer(serializers.ModelSerializer):
             )
 
         return Topic.objects.create(subject=subject, **validated_data)
+
+
+class TopicResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TopicResource
+        fields = ['id', 'title', 'description', 'file', 'url']
+
+
+class SubjectShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ['id', 'name']
+
+
+class TopicResourceSerializer(serializers.ModelSerializer):
+    # topic_id emas, aynan 'topic' deb yozamiz (Modeldagi FK nomi)
+    topic = serializers.PrimaryKeyRelatedField(queryset=Topic.objects.all())
+
+    class Meta:
+        model = TopicResource
+        fields = ['id', 'topic', 'title', 'description', 'file', 'url', 'created_at']
+
+
+class TopicDetailSerializer(serializers.ModelSerializer):
+    student_progress = serializers.SerializerMethodField()
+    resources = TopicResourceSerializer(many=True, read_only=True)
+    subject = SubjectShortSerializer(read_only=True) # ID emas, obyekt qaytadi
+
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'title', 'description', 'video_url', 
+            'subject', 'student_progress', 'resources'
+        ]
+    
+    def get_student_progress(self, obj):
+        request = self.context.get('request')
+        # request.user mavjudligini va talaba profilini tekshiramiz
+        if request and request.user.is_authenticated and hasattr(request.user, 'student_profile'):
+            progress = TopicProgress.objects.filter(
+                student_profile=request.user.student_profile, 
+                topic=obj
+            ).first()
+            
+            if progress:
+                return {
+                    "best_score": progress.best_score,
+                    "attempts_count": progress.attempts_count,
+                    "is_completed": progress.is_completed
+                }
+        return None

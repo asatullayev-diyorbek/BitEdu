@@ -1,14 +1,19 @@
+import traceback
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import permissions, status
 from django.db.models import Q, Count, ProtectedError
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, utils
 from django.forms import ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework import generics
 
-from apps.academic.models import Grade, Subject, Topic
-from .serializers import GradeSerializer, SubjectSerializer, TopicSerializer
+from apps.academic.models import Grade, Subject, Topic, TopicResource
+from .serializers import GradeSerializer, SubjectSerializer, TopicResourceSerializer, TopicSerializer
 from utils.paginations import StandardPagination
+from .serializers import TopicDetailSerializer
 
 
 class GradeAPIView(APIView):
@@ -172,7 +177,8 @@ class SubjectAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        except Exception:
+        except Exception as e:
+            print(e)
             return Response(
                 {"message": "Fan yaratishda xatolik yuz berdi."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -305,7 +311,8 @@ class TopicAPIView(APIView):
 
             return paginator.get_paginated_response(serializer.data)
 
-        except Exception:
+        except Exception as e:
+            print(e)
             return Response(
                 {"message": "Darslarni olishda xatolik yuz berdi."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -325,6 +332,7 @@ class TopicAPIView(APIView):
             )
 
         except Exception as e:
+            print(e)
             return Response(
                 {
                     "message": "Validation error",
@@ -340,22 +348,44 @@ class TopicAPIView(APIView):
 
 
 class TopicDetailAPIView(APIView):
-
     def get(self, request, id):
+        try:
+            topic_queryset = Topic.objects.select_related(
+                'subject', 
+                'subject__grade'
+            ).prefetch_related('resources')
+            
+            topic = get_object_or_404(topic_queryset, id=id)
+            print(f"--- DEBUG: Topic topildi: {topic.title} ---")
 
-        topic = get_object_or_404(
-            Topic.objects.select_related("subject"),
-            id=id
-        )
+            serializer = TopicDetailSerializer(topic, context={'request': request})
+            
+            data = serializer.data
 
-        serializer = TopicSerializer(topic)
+            return Response({
+                "status": 200,
+                "message": "Success",
+                "data": data
+            }, status=status.HTTP_200_OK)
 
-        return Response({
-            "status": 200,
-            "message": "Success",
-            "data": serializer.data
-        })
+        except Topic.DoesNotExist:
+            print(f"--- ERROR: Topic topilmadi (ID: {id}) ---")
+            return Response({
+                "status": 404,
+                "message": "Dars topilmadi (Bazada yo'q)."
+            }, status=status.HTTP_404_NOT_FOUND)
 
+        except Exception as e:
+            print("--- !!! SERVERDA XATOLIK YUZ BERDI !!! ---")
+            print(f"Xato turi: {type(e).__name__}")
+            print(f"Xato xabari: {str(e)}")
+            traceback.print_exc() 
+            
+            return Response({
+                "status": 500,
+                "message": f"Serverda xatolik: {str(e)}",
+                "trace": type(e).__name__
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request, id):
 
@@ -422,3 +452,42 @@ class TopicDetailAPIView(APIView):
                 "data": {}
             }
         )
+
+
+class TopicResourceListCreateAPIView(generics.ListCreateAPIView):
+    """ Resurslarni ko'rish va yangi qo'shish """
+    queryset = TopicResource.objects.all()
+    serializer_class = TopicResourceSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
+    # MANA SHU QATOR FAYL YUKLASH UCHUN SHART!
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def get_queryset(self):
+        topic_id = self.request.query_params.get('topic')
+        if topic_id:
+            return self.queryset.filter(topic_id=topic_id)
+        return self.queryset
+
+    def post(self, request, *args, **kwargs):
+        # Agar xato chiqsa, terminalda aynan nima xatoligini ko'rish uchun try-except
+        try:
+            return super().post(request, *args, **kwargs)
+        except Exception as e:
+            print("--- RESOURCE POST ERROR ---")
+            print(f"Xato turi: {type(e).__name__}")
+            print(f"Xato xabari: {str(e)}")
+            return Response(
+                {"message": str(e), "status": 500}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class TopicResourceDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """ Resursni tahrirlash va o'chirish """
+    queryset = TopicResource.objects.all()
+    serializer_class = TopicResourceSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
+    # Tahrirlashda ham fayl yangilanishi mumkin bo'lsa:
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+    lookup_field = 'id'

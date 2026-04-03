@@ -111,6 +111,7 @@ class LoginAPIView(APIView):
                     "username": user.username,
                     "full_name": user.get_full_name(),
                     "role": user.role,
+                    "image": request.build_absolute_uri(user.image.url) if user.image else None,
                 },
             },
             status=status.HTTP_200_OK,

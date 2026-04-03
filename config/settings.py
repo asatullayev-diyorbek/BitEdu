@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework_simplejwt.token_blacklist',
     'django_cleanup',
     "django_filters",
@@ -30,6 +31,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -37,6 +39,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -62,6 +65,12 @@ DATABASES = {
     "default": env.db(),
 }
 
+# 1. Iframe ichida ochishga ruxsat berish
+X_FRAME_OPTIONS = 'SAMEORIGIN' 
+
+# 2. Agar bu yordam bermasa (mutlaq ruxsat):
+X_FRAME_OPTIONS = 'ALLOWALL'
+
 AUTH_USER_MODEL = "users.User"
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -80,6 +89,14 @@ STATIC_ROOT = 'staticfiles/'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Yoki aniq React portini ko'rsating:
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

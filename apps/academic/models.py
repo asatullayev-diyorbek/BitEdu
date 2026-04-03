@@ -107,3 +107,29 @@ class Topic(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class TopicResource(models.Model):
+    """
+    Mavzuga oid qo'shimcha materiallar: PDF, Link, Taqdimot va h.k.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+        related_name="resources"
+    )
+    title = models.CharField(max_length=255, help_text="Material nomi (masalan: Formula list)")
+    description = models.TextField(blank=True, help_text="Qisqacha izoh")
+    
+    # Ham fayl, ham link bo'lishi mumkin
+    file = models.FileField(upload_to="topic_resources/", null=True, blank=True)
+    url = models.URLField(null=True, blank=True, help_text="Tashqi havola (YouTube, Wikipedia va h.k.)")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.topic.title})"

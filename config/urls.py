@@ -9,6 +9,8 @@ urlpatterns = [
     # API
     path('api/v1/auth/', include('apps.users.api.urls')),
     path('api/v1/academic/', include('apps.academic.api.urls')),
+    path('api/v1/tests/', include('apps.tests.api.urls')),
+    path('api/v1/results/', include('apps.results.api.urls')),
 ]
 
 if settings.DEBUG:
