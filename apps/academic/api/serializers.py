@@ -206,12 +206,13 @@ class TopicDetailSerializer(serializers.ModelSerializer):
     student_progress = serializers.SerializerMethodField()
     resources = TopicResourceSerializer(many=True, read_only=True)
     subject = SubjectShortSerializer(read_only=True) # ID emas, obyekt qaytadi
+    grade = serializers.CharField(source='subject.grade.name', read_only=True) # grade nomini olish uchun
 
     class Meta:
         model = Topic
         fields = [
             'id', 'title', 'description', 'video_url', 
-            'subject', 'student_progress', 'resources'
+            'subject', 'grade', 'student_progress', 'resources'
         ]
     
     def get_student_progress(self, obj):

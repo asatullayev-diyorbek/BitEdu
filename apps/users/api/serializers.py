@@ -114,6 +114,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    # grade_id ni tashqaridan qabul qilish uchun qo'shamiz
+    grade_id = serializers.UUIDField(write_only=True, required=False)
+
     class Meta:
         model = User
         fields = (
@@ -121,10 +124,58 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
+            "grade_id", # Bu yerga qo'shdik
         )
+
+    def update(self, instance, validated_data):
+        # 1. grade_id ni ma'lumotlar ichidan sug'urib olamiz
+        grade_id = validated_data.pop('grade_id', None)
+        
+        # 2. Asosiy User ma'lumotlarini yangilaymiz (ism, familiya va h.k.)
+        instance = super().update(instance, validated_data)
+
+        # 3. Agar grade_id kelgan bo'lsa, StudentProfile ni ham yangilaymiz
+        if grade_id:
+            try:
+                # StudentProfile mavjudligini tekshiramiz yoki yaratamiz
+                profile, created = StudentProfile.objects.get_or_create(user=instance)
+                
+                # Grade obyektini bazadan topamiz
+                grade = Grade.objects.get(id=grade_id)
+                
+                # Profilga yangi sinfni biriktiramiz
+                profile.grade = grade
+                profile.save()
+            except Grade.DoesNotExist:
+                raise serializers.ValidationError({"grade_id": "Bunday sinf topilmadi."})
+            except Exception as e:
+                raise serializers.ValidationError({"detail": f"Profilni yangilashda xatolik: {str(e)}"})
+
+        return instance
 
 
 class UserImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("image",)
+        
+
+class StudentListSerializer(serializers.ModelSerializer):
+    grade = serializers.CharField(source='student_profile.grade.name', read_only=True)
+    grade_id = serializers.UUIDField(source='student_profile.grade.id', read_only=True)
+    points = serializers.IntegerField(source='student_profile.total_points', read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 
+            'username', 
+            'first_name', 
+            'last_name', 
+            'email', 
+            'image', 
+            'grade', 
+            'grade_id',
+            'points', 
+            'date_joined'
+        )

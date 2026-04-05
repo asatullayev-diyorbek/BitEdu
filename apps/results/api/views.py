@@ -9,6 +9,8 @@ from utils.paginations import StandardPagination
 from apps.results.api.serializers import LeaderboardSerializer, StudentStatsSerializer
 from apps.users.models import StudentProfile, User
 from apps.tests.models import TestAttempt, TopicProgress
+
+
 class AcademicStatsMeAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -113,11 +115,15 @@ class LeaderboardAPIView(APIView):
         try:
             grade_filter = request.query_params.get("grade")
             
-            # select_related muhim, lekin filterda xato bo'lsa handle qilish kerak
-            queryset = StudentProfile.objects.select_related("user", "grade").all()
+            # 1. Faqat Student roli bo'lgan va o'chirilmagan o'quvchilarni olamiz
+            # Qidiruvni StudentProfile orqali qilamiz
+            queryset = StudentProfile.objects.select_related("user", "grade").filter(
+                user__role=User.Role.STUDENT, # Faqat o'quvchilar
+                user__is_active=True         # Faqat faol foydalanuvchilar
+            )
 
+            # 2. Sinf bo'yicha filtr
             if grade_filter:
-                # Agar grade_id UUID bo'lsa va noto'g'ri string kelsa, ValueError berishi mumkin
                 try:
                     queryset = queryset.filter(
                         Q(grade_id=grade_filter) |
@@ -126,6 +132,7 @@ class LeaderboardAPIView(APIView):
                 except (ValueError, ValidationError):
                     return Response({"detail": "Sinf filtri noto'g'ri formatda."}, status=400)
 
+            # 3. Ballar bo'yicha tartiblash (Asosiy logika)
             queryset = queryset.order_by("-total_points", "-completed_topics_count", "-created_at")
 
             paginator = StandardPagination()
@@ -135,7 +142,7 @@ class LeaderboardAPIView(APIView):
                 serializer = LeaderboardSerializer(page, many=True)
                 data = serializer.data
 
-                # Pagination rank hisoblash mantiqi
+                # Pagination rankini hisoblash
                 page_obj = getattr(paginator, "page", None)
                 page_number = page_obj.number if page_obj else 1
                 page_size = paginator.get_page_size(request) or 10
@@ -144,7 +151,17 @@ class LeaderboardAPIView(APIView):
                 for idx, entry in enumerate(data, start=1):
                     entry["rank"] = start_rank + idx
 
-                return paginator.get_paginated_response(data)
+                # Wrapper ichida qaytaramiz: { "status": 200, "data": { ... } }
+                return Response({
+                    "status": 200,
+                    "message": "Success",
+                    "data": {
+                        "count": paginator.page.paginator.count,
+                        "next": paginator.get_next_link(),
+                        "previous": paginator.get_previous_link(),
+                        "results": data
+                    }
+                })
             
             return Response({"detail": "Ma'lumot topilmadi."}, status=404)
 

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import LoginAPIView, RefreshAPIView, LogoutAPIView
+from .views import ChangePasswordAPIView, LoginAPIView, RefreshAPIView, LogoutAPIView, StudentDashboardAPIView
 from apps.users.api.views import MeAPIView
 from .views import (
     UserListCreateAPIView,
@@ -16,4 +16,8 @@ urlpatterns = [
     path("user/", UserListCreateAPIView.as_view()),
     path("user/<uuid:id>/", UserRetrieveUpdateAPIView.as_view()),
     path("user/<uuid:id>/update-image/", UserUpdateImageAPIView.as_view()),
+
+    path("change-password/", ChangePasswordAPIView.as_view(), name="change-password"),
+
+    path("student/dashboard/stats/", StudentDashboardAPIView.as_view(), name="student-dashboard"),
 ]
