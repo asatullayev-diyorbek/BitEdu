@@ -21,6 +21,7 @@ from apps.users.api.serializers import (
     UserCreateSerializer,
     UserUpdateSerializer,
     UserImageSerializer,
+    StudentRegistrationSerializer,
 )
 
 from django.contrib.auth import authenticate, get_user_model, update_session_auth_hash
@@ -34,6 +35,25 @@ class MeAPIView(APIView):
     def get(self, request):
         serializer = MeSerializer(request.user, context={'request': request})
         return Response(serializer.data)
+
+
+class StudentRegistrationAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = StudentRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            # JWT token yaratish
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'user': MeSerializer(user, context={'request': request}).data,
+                'tokens': {
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                }
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserListCreateAPIView(generics.ListCreateAPIView):

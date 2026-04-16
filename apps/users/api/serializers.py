@@ -113,6 +113,48 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return user
 
 
+class StudentRegistrationSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150, required=True)
+    last_name = serializers.CharField(max_length=150, required=True)
+    grade_id = serializers.UUIDField(required=True)
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True, min_length=8)
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Bu email allaqachon ro'yxatdan o'tgan.")
+        return value
+
+    def validate_grade_id(self, value):
+        try:
+            Grade.objects.get(id=value)
+        except Grade.DoesNotExist:
+            raise serializers.ValidationError("Bunday sinf topilmadi.")
+        return value
+
+    def create(self, validated_data):
+        # User yaratish
+        user_data = {
+            'username': validated_data['email'],  # emailni username sifatida ishlatamiz
+            'email': validated_data['email'],
+            'first_name': validated_data['first_name'],
+            'last_name': validated_data['last_name'],
+            'role': User.Role.STUDENT,
+        }
+        user = User(**user_data)
+        user.set_password(validated_data['password'])
+        user.save()
+
+        # StudentProfile yaratish
+        grade = Grade.objects.get(id=validated_data['grade_id'])
+        StudentProfile.objects.create(
+            user=user,
+            grade=grade
+        )
+
+        return user
+
+
 class UserUpdateSerializer(serializers.ModelSerializer):
     # grade_id ni tashqaridan qabul qilish uchun qo'shamiz
     grade_id = serializers.UUIDField(write_only=True, required=False)

@@ -10,6 +10,8 @@ from django.forms import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework import generics
 
+from rest_framework import permissions
+
 from apps.academic.models import Grade, Subject, Topic, TopicResource
 from .serializers import GradeSerializer, SubjectSerializer, TopicResourceSerializer, TopicSerializer
 from utils.paginations import StandardPagination
@@ -17,6 +19,7 @@ from .serializers import TopicDetailSerializer
 
 
 class GradeAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
 

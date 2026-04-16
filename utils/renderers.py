@@ -3,6 +3,7 @@ from rest_framework.renderers import JSONRenderer
 
 class CustomJSONRenderer(JSONRenderer):
     def render(self, data, accepted_media_type=None, renderer_context=None):
+        renderer_context = renderer_context or {}
         response = renderer_context.get("response")
 
         status_code = response.status_code if response else 200
