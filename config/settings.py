@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'apps.academic',
     'apps.results',
     'apps.tests',
+    'apps.games',
 ]
 
 MIDDLEWARE = [
